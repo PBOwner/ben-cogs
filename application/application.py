@@ -1,6 +1,7 @@
 import discord
 import asyncio
-from redbot.core import commands, Config
+from discord.ext import commands
+from discord.ui import Button, ButtonStyle, View
 
 class Application(commands.Cog):
     """Cog for handling applications."""
@@ -14,25 +15,6 @@ class Application(commands.Cog):
             "applications": {}
         }
         self.config.register_guild(**default_guild)
-
-    @commands.guild_only()
-    @commands.command()
-    async def addq(self, ctx, role: discord.Role, *, question: str):
-        """Add a question for a specific role."""
-        async with self.config.guild(ctx.guild).questions() as questions:
-            questions.setdefault(str(role.id), []).append(question)
-        await ctx.send(f"Question added for {role.name}.")
-
-    @commands.guild_only()
-    @commands.command()
-    async def remq(self, ctx, role: discord.Role, *, question: str):
-        """Remove a question for a specific role."""
-        async with self.config.guild(ctx.guild).questions() as questions:
-            if question in questions.get(str(role.id), []):
-                questions[str(role.id)].remove(question)
-                await ctx.send(f"Question removed for {role.name}.")
-            else:
-                await ctx.send("Question not found for this role.")
 
     @commands.guild_only()
     @commands.command()
@@ -72,12 +54,14 @@ class Application(commands.Cog):
             for question, response in responses.items():
                 embed.add_field(name=f"Question: {question}", value=f"Response: {response}", inline=False)
 
-            accept_button = discord.Button(style=discord.ButtonStyle.green, label="Accept")
-            decline_button = discord.Button(style=discord.ButtonStyle.red, label="Decline")
+            accept_button = Button(style=ButtonStyle.green, label="Accept")
+            decline_button = Button(style=ButtonStyle.red, label="Decline")
 
-            action_row = discord.ActionRow(accept_button, decline_button)
+            view = View()
+            view.add_item(accept_button)
+            view.add_item(decline_button)
 
-            message = await application_channel.send(embed=embed, components=[action_row])
+            message = await application_channel.send(embed=embed, view=view)
 
             def check(button_ctx):
                 return button_ctx.author.id == ctx.author.id and button_ctx.message.id == message.id
@@ -91,35 +75,9 @@ class Application(commands.Cog):
                 elif button_ctx.component.label == "Decline":
                     await button_ctx.respond(type=6, content="Your application has been declined.")
             except asyncio.TimeoutError:
-                await message.edit(components=[])
+                await message.edit(view=None)
         else:
             await ctx.send("Application channel not set. Please set an application channel first.")
-
-    @commands.guild_only()
-    @commands.command()
-    async def listroles(self, ctx):
-        """List roles available to apply for."""
-        questions = await self.config.guild(ctx.guild).questions()
-        roles = [ctx.guild.get_role(int(role_id)).name for role_id in questions.keys()]
-        if roles:
-            await ctx.send(f"Roles available to apply for: {', '.join(roles)}")
-        else:
-            await ctx.send("No roles available for applications.")
-
-    @commands.guild_only()
-    @commands.command()
-    async def clearqs(self, ctx, role: discord.Role):
-        """Clear all questions for a specific role."""
-        async with self.config.guild(ctx.guild).questions() as questions:
-            questions.pop(str(role.id), None)
-        await ctx.send(f"All questions cleared for {role.name}.")
-
-    @commands.guild_only()
-    @commands.command()
-    async def setappchannel(self, ctx, channel: discord.TextChannel):
-        """Set the application channel."""
-        await self.config.guild(ctx.guild).application_channel.set(channel.id)
-        await ctx.send(f"Application channel set to {channel.mention}.")
 
 def setup(bot):
     bot.add_cog(Application(bot))
