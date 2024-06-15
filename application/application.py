@@ -114,5 +114,12 @@ class Application(commands.Cog):
             questions.pop(str(role.id), None)
         await ctx.send(f"All questions cleared for {role.name}.")
 
+    @commands.guild_only()
+    @commands.command()
+    async def setappchannel(self, ctx, channel: discord.TextChannel):
+        """Set the application channel."""
+        await self.config.guild(ctx.guild).application_channel.set(channel.id)
+        await ctx.send(f"Application channel set to {channel.mention}.")
+
 def setup(bot):
     bot.add_cog(Application(bot))
