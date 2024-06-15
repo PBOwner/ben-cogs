@@ -1,4 +1,5 @@
 import discord
+import asyncio
 from redbot.core import commands
 
 class Application(commands.Cog):
