@@ -32,8 +32,7 @@ class ApplicationCog(commands.Cog):
         role = discord.utils.get(ctx.guild.roles, name=role_name)
         if not role or str(role.id) not in self.questions:
             return await ctx.send("Role or questions not found.")
-    
-        # DM application questions to the user
+
         questions = self.questions[str(role.id)]
         responses = {}
         for question in questions:
@@ -50,31 +49,24 @@ class ApplicationCog(commands.Cog):
         embed = discord.Embed(title=f"Application for {role.name}", color=discord.Color.blue())
         for question, response in responses.items():
             embed.add_field(name=f"Question: {question}", value=f"Response: {response}", inline=False)
-    
-        accept_button = discord.Button(style=discord.ButtonStyle.green, label="Accept")
-        decline_button = discord.Button(style=discord.ButtonStyle.red, label="Decline")
-    
-        view = discord.ui.View()
-        view.add_item(accept_button)
-        view.add_item(decline_button)
 
-        message = await application_channel.send(embed=embed, view=view)
+        message = await application_channel.send(embed=embed)
+        await message.add_reaction("✅")  # Accept reaction
+        await message.add_reaction("❌")  # Decline reaction
 
-        def check(button_ctx):
-            return button_ctx.author.id == ctx.author.id and button_ctx.message.id == message.id
+        def reaction_check(reaction, user):
+            return user == ctx.author and reaction.message == message
 
         try:
-            button_ctx = await self.bot.wait_for("button_click", check=check, timeout=60)
-            if button_ctx.component.label == "Accept":
-                await button_ctx.respond(type=6)
+            reaction, _ = await self.bot.wait_for("reaction_add", check=reaction_check, timeout=60)
+            if str(reaction.emoji) == "✅":
                 await ctx.author.add_roles(role)
                 await ctx.author.send(f"Congratulations! You have been accepted for the '{role.name}' role.")
-            elif button_ctx.component.label == "Decline":
-                await button_ctx.respond(type=6)
+            elif str(reaction.emoji) == "❌":
                 await ctx.author.send(f"Sorry, you are declined for '{role.name}'. Please try again after 3 days.")
         except asyncio.TimeoutError:
-            await message.edit(view=None)
-
+            await message.clear_reactions()
+        
     @commands.command()
     async def setappchannel(self, ctx, channel: discord.TextChannel):
         """Set the submission channel for applications."""
