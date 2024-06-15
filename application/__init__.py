@@ -1,6 +1,5 @@
-from redbot.core.bot import Red
+from .applicationcog import ApplicationCog
 
-from .application import Application
-
-async def setup(bot: Red):
-    await bot.add_cog(Application(bot))
+def setup(bot):
+    cog = ApplicationCog(bot)
+    bot.add_cog(cog)
