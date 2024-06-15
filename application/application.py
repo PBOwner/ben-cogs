@@ -42,10 +42,9 @@ class Application(commands.Cog):
         else:
             await ctx.send("No roles set for applications.")
 
-    @commands.guild_only()
     @commands.command()
-    async def apply(self, ctx, *, role_name: str):
-        """Apply for a specific role."""
+    async def apply(self, ctx, role_name: str):
+        """Submit an application for a role."""
         role = discord.utils.get(ctx.guild.roles, name=role_name)
         if not role:
             return await ctx.send("Role not found.")
@@ -53,36 +52,48 @@ class Application(commands.Cog):
         questions = await self.config.guild(ctx.guild).questions()
         role_questions = questions.get(str(role.id))
         if not role_questions:
-            return await ctx.send("No questions set for this role.")
+            return await ctx.send("No questions found for this role. Please add questions first.")
 
         responses = {}
+
         for question in role_questions:
             await ctx.author.send(f"Question: {question}\nPlease respond in this DM.")
             try:
-                response = await self.bot.wait_for(
-                    "message",
-                    check=lambda m: m.author == ctx.author and m.channel.type == discord.ChannelType.private,
-                    timeout=300
-                )
+                response = await self.bot.wait_for("message", check=lambda m: m.author == ctx.author, timeout=300)
                 responses[question] = response.content
             except asyncio.TimeoutError:
-                await ctx.author.send("Time's up. Please try again later.")
+                await ctx.author.send("Response timed out. Please try again later.")
                 return
-
-        async with self.config.guild(ctx.guild).applications() as applications:
-            applications.setdefault(str(role.id), {}).setdefault(str(ctx.author.id), responses)
 
         application_channel_id = await self.config.guild(ctx.guild).application_channel()
         application_channel = self.bot.get_channel(application_channel_id)
 
-        if application_channel:
-            embed = discord.Embed(title=f"New Application for {role.name} - {ctx.author.display_name}", color=discord.Color.blue())
-            for question, response in responses.items():
-                embed.add_field(name=f"Question: {question}", value=f"Response: {response}", inline=False)
-            await application_channel.send(embed=embed)
-            await ctx.send("Application submitted. Thank you!")
-        else:
-            await ctx.send("Application channel not set. Please set an application channel using the `set_application_channel` command.")
+        if not application_channel:
+            return await ctx.send("Application channel not set. Please set an application channel first.")
+
+        embed = discord.Embed(title=f"Application for {role.name}", color=discord.Color.blue())
+        for question, response in responses.items():
+            embed.add_field(name=f"Question: {question}", value=f"Response: {response}", inline=False)
+
+        message = await application_channel.send(embed=embed, components=[
+            Button(style=ButtonStyle.green, label="Accept", custom_id="accept"),
+            Button(style=ButtonStyle.red, label="Deny", custom_id="deny")
+        ])
+
+        def check(res):
+            return ctx.author == res.user and res.channel == message.channel
+
+        try:
+            res = await self.bot.wait_for("button_click", check=check, timeout=300)
+            if res.component.custom_id == "Accept":
+                await ctx.author.add_roles(role)
+                await ctx.author.send(f"Your application for {role.name} has been accepted.")
+            elif res.component.custom_id == "Deny":
+                await ctx.author.send(f"Your application for {role.name} has been denied.")
+        except asyncio.TimeoutError:
+            await ctx.author.send("Response timed out. Please try again later.")
+
+        await ctx.send("Your application has been submitted.")
 
     @commands.guild_only()
     @commands.command()
