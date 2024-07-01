@@ -1,5 +1,4 @@
 import discord
-import discord.ext
 from redbot.core import commands, Config
 
 class Application(commands.Cog):
@@ -69,63 +68,40 @@ class Application(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def sendapplybutton(self, ctx, channel: discord.TextChannel = None):
-        """Send the application button to a specified channel or the configured channel with the configured message."""
-        if channel is None:
-            application_channel_id = await self.config.guild(ctx.guild).application_channel()
-            if not application_channel_id:
-                await ctx.send("Application channel not set. Please set it using `setmhbreq`.")
-                return
-            channel = self.bot.get_channel(application_channel_id)
-            if not channel:
-                await ctx.send("Application channel not found. Please set it again using `setmhbreq`.")
-                return
-
-        button_message = await self.config.guild(ctx.guild).button_message()
-        await channel.send(button_message, view=ApplyButton(self.bot, self.config))
-        await ctx.send(f"Application button sent to {channel.mention}.")
-
-class ApplyButton(discord.ui.View):
-    def __init__(self, bot, config):
-        super().__init__(timeout=None)
-        self.bot = bot
-        self.config = config
-
-    @discord.ui.button(label="Apply", style=discord.ButtonStyle.primary)
-    async def apply_button(self, button: discord.ui.Button, interaction: discord.Interaction):
-        questions = await self.config.guild(interaction.guild).questions()
+    async def applymhb(self, ctx):
+        """Apply for a Mental Health Buddy."""
+        questions = await self.config.guild(ctx.guild).questions()
         if not questions:
-            await interaction.response.send_message("No questions set for the application.", ephemeral=True)
+            await ctx.send("No questions set for the application.")
             return
 
-        modal = ApplicationModal(self.bot, self.config, questions)
-        await interaction.response.send_modal(modal)
+        await ctx.author.send("Starting your application for a Mental Health Buddy. Please answer the following questions:")
 
-class ApplicationModal(discord.ui.Modal):
-    def __init__(self, bot, config, questions):
-        self.bot = bot
-        self.config = config
-        self.questions = questions
-        components = [discord.ui.InputText(label=q, style=discord.InputTextStyle.long) for q in questions]
-        super().__init__(title="Mental Health Buddy Application", components=components)
+        responses = {}
+        for question in questions:
+            await ctx.author.send(f"Question: {question}")
+            try:
+                response = await self.bot.wait_for(
+                    "message",
+                    check=lambda m: m.author == ctx.author and isinstance(m.channel, discord.DMChannel),
+                    timeout=300
+                )
+                responses[question] = response.content
+            except asyncio.TimeoutError:
+                await ctx.author.send("You took too long to respond. Please try again later.")
+                return
 
-    async def callback(self, interaction: discord.Interaction):
-        try:
-            responses = {self.questions[i]: component.value for i, component in enumerate(self.children)}
-            async with self.config.guild(interaction.guild).applications() as applications:
-                applications[str(interaction.user.id)] = responses
+        async with self.config.guild(ctx.guild).applications() as applications:
+            applications[str(ctx.author.id)] = responses
 
-            application_channel_id = await self.config.guild(interaction.guild).application_channel()
-            application_channel = self.bot.get_channel(application_channel_id)
+        application_channel_id = await self.config.guild(ctx.guild).application_channel()
+        application_channel = self.bot.get_channel(application_channel_id)
 
-            if application_channel:
-                embed = discord.Embed(title=f"New Application - {interaction.user.display_name}", color=discord.Color.blue())
-                for question, response in responses.items():
-                    embed.add_field(name=f"Question: {question}", value=f"Response: {response}", inline=False)
-                await application_channel.send(embed=embed)
-                await interaction.response.send_message("Application submitted. Thank you!", ephemeral=True)
-            else:
-                await interaction.response.send_message("Application channel not set. Please contact an admin.", ephemeral=True)
-        except Exception as e:
-            await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
-            raise e
+        if application_channel:
+            embed = discord.Embed(title=f"New Application - {ctx.author.display_name}", color=discord.Color.blue())
+            for question, response in responses.items():
+                embed.add_field(name=f"Question: {question}", value=f"Response: {response}", inline=False)
+            await application_channel.send(embed=embed)
+            await ctx.author.send("Application submitted. Thank you!")
+        else:
+            await ctx.author.send("Application channel not set. Please contact an admin.")
