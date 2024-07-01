@@ -1,6 +1,5 @@
 import discord
 from redbot.core import commands, Config
-import discord.ext
 
 class Application(commands.Cog):
     """Cog for handling Mental Health Buddy applications."""
@@ -11,7 +10,8 @@ class Application(commands.Cog):
         default_guild = {
             "application_channel": None,
             "questions": [],
-            "applications": {}
+            "applications": {},
+            "button_message": "Click the button below to apply for a Mental Health Buddy."
         }
         self.config.register_guild(**default_guild)
 
@@ -29,6 +29,13 @@ class Application(commands.Cog):
         """Set the application channel."""
         await self.config.guild(ctx.guild).application_channel.set(channel.id)
         await ctx.send(f"Application channel set to {channel.mention}.")
+
+    @commands.guild_only()
+    @commands.command()
+    async def setbuttonmessage(self, ctx, *, message: str):
+        """Set the message to be displayed with the application button."""
+        await self.config.guild(ctx.guild).button_message.set(message)
+        await ctx.send("Button message set.")
 
     @commands.guild_only()
     @commands.command()
@@ -59,17 +66,23 @@ class Application(commands.Cog):
         await self.config.guild(ctx.guild).questions.set([])
         await ctx.send("All questions cleared.")
 
-    @commands.Cog.listener()
-    async def on_ready(self):
-        for guild in self.bot.guilds:
-            application_channel_id = await self.config.guild(guild).application_channel()
-            if application_channel_id:
-                channel = self.bot.get_channel(application_channel_id)
-                if channel:
-                    await channel.send(
-                        "Click the button below to apply for a Mental Health Buddy.",
-                        view=ApplyButton(self.bot, self.config)
-                    )
+    @commands.guild_only()
+    @commands.command()
+    async def sendapplybutton(self, ctx, channel: discord.TextChannel = None):
+        """Send the application button to a specified channel or the configured channel with the configured message."""
+        if channel is None:
+            application_channel_id = await self.config.guild(ctx.guild).application_channel()
+            if not application_channel_id:
+                await ctx.send("Application channel not set. Please set it using `setmhbreq`.")
+                return
+            channel = self.bot.get_channel(application_channel_id)
+            if not channel:
+                await ctx.send("Application channel not found. Please set it again using `setmhbreq`.")
+                return
+
+        button_message = await self.config.guild(ctx.guild).button_message()
+        await channel.send(button_message, view=ApplyButton(self.bot, self.config))
+        await ctx.send(f"Application button sent to {channel.mention}.")
 
 class ApplyButton(discord.ui.View):
     def __init__(self, bot, config):
