@@ -1,4 +1,5 @@
 import discord
+import discord.ext
 from redbot.core import commands, Config
 
 class Application(commands.Cog):
@@ -109,18 +110,22 @@ class ApplicationModal(discord.ui.Modal):
         super().__init__(title="Mental Health Buddy Application", components=components)
 
     async def callback(self, interaction: discord.Interaction):
-        responses = {self.questions[i]: component.value for i, component in enumerate(self.children)}
-        async with self.config.guild(interaction.guild).applications() as applications:
-            applications[str(interaction.user.id)] = responses
+        try:
+            responses = {self.questions[i]: component.value for i, component in enumerate(self.children)}
+            async with self.config.guild(interaction.guild).applications() as applications:
+                applications[str(interaction.user.id)] = responses
 
-        application_channel_id = await self.config.guild(interaction.guild).application_channel()
-        application_channel = self.bot.get_channel(application_channel_id)
+            application_channel_id = await self.config.guild(interaction.guild).application_channel()
+            application_channel = self.bot.get_channel(application_channel_id)
 
-        if application_channel:
-            embed = discord.Embed(title=f"New Application - {interaction.user.display_name}", color=discord.Color.blue())
-            for question, response in responses.items():
-                embed.add_field(name=f"Question: {question}", value=f"Response: {response}", inline=False)
-            await application_channel.send(embed=embed)
-            await interaction.response.send_message("Application submitted. Thank you!", ephemeral=True)
-        else:
-            await interaction.response.send_message("Application channel not set. Please contact an admin.", ephemeral=True)
+            if application_channel:
+                embed = discord.Embed(title=f"New Application - {interaction.user.display_name}", color=discord.Color.blue())
+                for question, response in responses.items():
+                    embed.add_field(name=f"Question: {question}", value=f"Response: {response}", inline=False)
+                await application_channel.send(embed=embed)
+                await interaction.response.send_message("Application submitted. Thank you!", ephemeral=True)
+            else:
+                await interaction.response.send_message("Application channel not set. Please contact an admin.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
+            raise e
