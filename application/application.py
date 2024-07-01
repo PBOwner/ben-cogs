@@ -16,7 +16,7 @@ class Application(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def addq(self, ctx, *, question: str):
+    async def addquestion(self, ctx, *, question: str):
         """Add a question for the Mental Health Buddy application."""
         async with self.config.guild(ctx.guild).questions() as questions:
             questions.append(question)
@@ -24,14 +24,14 @@ class Application(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def setappchannel(self, ctx, channel: discord.TextChannel):
+    async def setmhbreq(self, ctx, channel: discord.TextChannel):
         """Set the application channel."""
         await self.config.guild(ctx.guild).application_channel.set(channel.id)
         await ctx.send(f"Application channel set to {channel.mention}.")
 
     @commands.guild_only()
     @commands.command()
-    async def listqs(self, ctx):
+    async def listquestions(self, ctx):
         """List questions for the Mental Health Buddy application."""
         questions = await self.config.guild(ctx.guild).questions()
         if questions:
@@ -42,7 +42,7 @@ class Application(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def remq(self, ctx, index: int):
+    async def removeq(self, ctx, index: int):
         """Remove a question by its index."""
         async with self.config.guild(ctx.guild).questions() as questions:
             if 0 < index <= len(questions):
@@ -53,7 +53,7 @@ class Application(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def clearqs(self, ctx):
+    async def clearq(self, ctx):
         """Clear all questions for the Mental Health Buddy application."""
         await self.config.guild(ctx.guild).questions.set([])
         await ctx.send("All questions cleared.")
