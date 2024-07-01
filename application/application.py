@@ -1,6 +1,6 @@
 import discord
 from redbot.core import commands, Config
-from discord.ext import commands
+import discord.ext
 
 class Application(commands.Cog):
     """Cog for handling Mental Health Buddy applications."""
