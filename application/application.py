@@ -16,7 +16,7 @@ class Application(commands.Cog):
 
     @commands.guild_only()
     @commands.command()
-    async def addquestion(self, ctx, *, question: str):
+    async def addmhbq(self, ctx, *, question: str):
         """Add a question for the Mental Health Buddy application."""
         async with self.config.guild(ctx.guild).questions() as questions:
             questions.append(question)
